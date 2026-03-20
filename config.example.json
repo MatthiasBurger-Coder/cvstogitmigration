@@ -1,0 +1,30 @@
+{
+  "cvs_project_path": "/srv/migration/cvs-project",
+  "workspace_root": "./work",
+  "report_root": "./reports",
+  "bitbucket": {
+    "base_url": "https://bitbucket.example.com",
+    "project_key": "CVS",
+    "project_name": "CVS Migration",
+    "create_project_if_missing": false,
+    "token": "",
+    "username": "bitbucket-api-user",
+    "password": "bitbucket-api-password",
+    "timeout_seconds": 30
+  },
+  "git": {
+    "default_branch": "main",
+    "ssh_url_template": "ssh://git@bitbucket.example.com:7999/{project_key}/{repo_slug}.git",
+    "commit_message": "Initial snapshot import from CVS repository"
+  },
+  "default_committer": {
+    "name": "John Doe",
+    "email": "john.doe@example.com"
+  },
+  "author_map": {
+    "jdoe": {
+      "name": "John Doe",
+      "email": "john.doe@example.com"
+    }
+  }
+}

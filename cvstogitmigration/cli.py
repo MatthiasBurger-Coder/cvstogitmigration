@@ -1,9 +1,9 @@
-"""Simple CLI entry point for the migration helper."""
+"""Console entry point for the CVS snapshot migration tool."""
 
-from __future__ import print_function
+import sys
+
+from cvstogitmigration.migrator import main
 
 
-def main():
-    """Run the command line interface."""
-    print('cvstogitmigration is ready')
-    return 0
+if __name__ == '__main__':
+    sys.exit(main())
