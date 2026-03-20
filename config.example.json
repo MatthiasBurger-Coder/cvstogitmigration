@@ -2,6 +2,9 @@
   "cvs_project_path": "/srv/migration/cvs-project",
   "workspace_root": "./work",
   "report_root": "./reports",
+  "migration_tool": {
+    "engine": "cvs-fast-export"
+  },
   "bitbucket": {
     "base_url": "https://bitbucket.example.com",
     "project_key": "CVS",
@@ -14,8 +17,7 @@
   },
   "git": {
     "default_branch": "main",
-    "ssh_url_template": "ssh://git@bitbucket.example.com:7999/{project_key}/{repo_slug}.git",
-    "commit_message": "Initial snapshot import from CVS repository"
+    "ssh_url_template": "ssh://git@bitbucket.example.com:7999/{project_key}/{repo_slug}.git"
   },
   "default_committer": {
     "name": "John Doe",
@@ -24,7 +26,14 @@
   "author_map": {
     "jdoe": {
       "name": "John Doe",
-      "email": "john.doe@example.com"
+      "email": "john.doe@example.com",
+      "timezone": "Europe/Berlin"
     }
+  },
+  "branch_map": {
+    "HEAD": "main"
+  },
+  "tag_map": {
+    "RELENG_1_0": "v1.0"
   }
 }

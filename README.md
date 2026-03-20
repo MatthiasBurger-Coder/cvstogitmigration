@@ -1,49 +1,42 @@
 # cvstogitmigration
 
-Python-2.7-Werkzeug zur bewussten Snapshot-Migration lokaler CVS-Repositories nach Git und Bitbucket Server / Data Center.
+Python-2.7-Werkzeug zur vollstaendigen Historienmigration lokaler CVS-Repositories nach Git und Bitbucket Server / Data Center.
 
 ## Strategie
 
-Die Migration uebernimmt absichtlich nicht die CVS-Historie. Statt `cvs2git` oder `git cvsimport` wird pro erkanntem CVS-Repository nur der finale Dateistand exportiert, in ein neues Git-Repository geschrieben, mit genau einem Commit versehen und danach per SSH nach Bitbucket gepusht.
+Die Migration uebernimmt ausdruecklich die CVS-Historie. Pro erkanntem CVS-Repository wird die komplette rekonstruierbare Commit-Historie mit Branches und Tags nach Git ueberfuehrt und danach nach Bitbucket gepusht.
 
-Diese Strategie ist fuer die hier geforderte Einmalmigration robuster und einfacher, weil:
+Als Standardwerkzeug wird `cvs-fast-export` verwendet und in Python 2.7 orchestriert. Diese Wahl ist fuer reale Historienmigrationen sinnvoll, weil:
 
-- keine Historien-Rekonstruktion noetig ist
-- kein Mapping komplexer CVS-Branches und Tags noetig ist
-- pro CVS-Repository exakt ein reproduzierbarer Git-Commit entsteht
-- Bitbucket-Repositories direkt per REST-API sichergestellt werden koennen
+- es direkt einen Git-fast-import-Stream erzeugt
+- es Author-Mapping ueber ein Authormap-File unterstuetzt
+- es Branches und Tags aus CVS historisch rekonstruiert
+- es laut eigener Dokumentation deutlich schneller als aeltere Alternativen arbeitet
+- es direkt in einen bare Git-Import fuer Bitbucket eingebunden werden kann
 
 ## Erkennung lokaler CVS-Repositories
 
 Ein CVS-Repository wird als jedes Verzeichnis erkannt, das ein direktes Unterverzeichnis `CVSROOT` besitzt. Unterhalb des konfigurierten Projektpfads werden alle solchen Verzeichnisse rekursiv gesucht.
 
-## Snapshot-Erzeugung
+## Historienimport
 
-Der Snapshot wird direkt aus den lokalen RCS-Dateien erzeugt:
+Die Migration arbeitet mit den lokalen `,v`-Dateien des CVS-Repositories:
 
-1. Alle `,v`-Dateien ausserhalb von `CVSROOT` werden gesucht.
-2. Inhalte in `Attic` werden absichtlich ignoriert, weil geloeschte Dateien nicht in den finalen Snapshot gehoeren sollen.
-3. Fuer jede aktive `,v`-Datei wird der HEAD-Inhalt mit `co -p` exportiert.
-4. Daraus entsteht ein sauberes Arbeitsverzeichnis ohne CVS-Metadaten.
+1. Alle `,v`-Dateien ausserhalb von `CVSROOT` werden erfasst.
+2. Alle CVS-Autoren werden aus der Historie gesammelt.
+3. Es wird ein `cvs-fast-export`-Authormap erzeugt.
+4. `cvs-fast-export` erzeugt einen Git-fast-import-Stream inklusive Historie, Branches und Tags.
+5. Der Stream wird in ein bare Git-Repository importiert.
+6. Branch-/Tag-Mappings werden optional nachgezogen.
+7. Danach wird das Ergebnis validiert und nach Bitbucket gepusht.
 
-## Git-Initialisierung
+## Author-Mapping
 
-Fuer jedes Snapshot-Arbeitsverzeichnis wird:
+Das Werkzeug erzeugt fuer jedes CVS-Repository ein konkretes Authormap-File:
 
-1. `git init` ausgefuehrt
-2. der konfigurierte Branch (`main` oder `master`) gesetzt
-3. genau ein Commit erzeugt
-4. `origin` auf die konfigurierte Bitbucket-SSH-URL gesetzt
-5. per `git push` nach Bitbucket uebertragen
-
-## Committer-Aufloesung
-
-Das Werkzeug versucht optional, aus den HEAD-Revisionen der Snapshot-Dateien genau einen CVS-Autor zu erkennen. Wenn exakt ein Autor gefunden und in `author_map` konfiguriert ist, wird dieser als Git-Autor und Committer verwendet.
-
-In allen anderen Faellen wird bewusst auf den konfigurierten Fallback gesetzt:
-
-- Name: `John Doe`
-- E-Mail: `john.doe@example.com`
+- bekannte Benutzer kommen aus `author_map`
+- unbekannte Benutzer werden explizit auf `John Doe <john.doe@example.com>` gemappt
+- verwendete Fallbacks werden im Report dokumentiert
 
 ## Bitbucket-Integration
 
@@ -51,10 +44,14 @@ Das Skript unterstuetzt Bitbucket Server / Data Center per REST-API:
 
 - Projekt pruefen oder optional anlegen
 - Repository pruefen oder anlegen
-- Git-Remote per SSH-URL setzen
-- Push ueber vorhandene SSH-Key-Authentifizierung
+- Branches und Tags vollstaendig pushen
+- API-Aufrufe im Report protokollieren
 
 Die API-Kommunikation nutzt `requests`, falls verfuegbar, sonst `urllib2`.
+
+## Technische Grenzen
+
+CVS und Git haben unterschiedliche Historienmodelle. Das Werkzeug dokumentiert diese Unterschiede transparent und uebernimmt Warnungen des Migrationswerkzeugs in den Report. Einige CVS-Artefakte lassen sich technisch nicht immer 1:1 in Git abbilden, insbesondere bei uneindeutigen Tags, branch-spezifischen Sonderfaellen oder historisch inkonsistenten Repositories.
 
 ## Projektstruktur
 
@@ -79,7 +76,7 @@ cvstogitmigration/
 
 - Python 2.7
 - `git`
-- `co` aus dem RCS-Paket
+- `cvs-fast-export`
 - Netzwerkzugriff auf Bitbucket Server / Data Center
 - funktionierende SSH-Key-Authentifizierung fuer Git-Push
 
@@ -89,6 +86,7 @@ cvstogitmigration/
 source .venv/bin/activate
 python -m cvstogitmigration.cli --config config.example.json --dry-run --verbose
 python -m cvstogitmigration.cli --config config.example.json --skip-existing
+python -m cvstogitmigration.cli --config config.example.json --force
 ```
 
 ## Reports
@@ -102,8 +100,10 @@ Im konfigurierten `report_root` werden erzeugt:
 Diese Dateien dokumentieren pro Repository:
 
 - Erkennung des CVS-Repositories
-- Snapshot-Erzeugung
+- Wahl und Ausfuehrung des Migrationswerkzeugs
 - Committer-Aufloesung inklusive John-Doe-Fallback
+- erkannte Branches und Tags
+- Import-Validierung
 - Bitbucket-API-Aufrufe
 - ausgefuehrte Git-Schritte
 - Erfolg, Fehler oder Skip-Grund
