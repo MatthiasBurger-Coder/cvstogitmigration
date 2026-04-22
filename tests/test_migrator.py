@@ -6,7 +6,7 @@ import unittest
 from cvstogitmigration import migrator
 
 
-RCS_SAMPLE = """head 1.3;
+RCS_SAMPLE = b"""head 1.3;
 access;
 symbols;
 locks; strict;
@@ -85,9 +85,68 @@ class MigratorTestCase(unittest.TestCase):
         result = migrator.build_authormap(repository_path, config, report, authormap_path)
         self.assertEqual(2, len(result))
         self.assertEqual(['unknown'], report['author_mapping']['fallback_authors'])
-        content = open(authormap_path, 'rb').read()
+        content = open(authormap_path, 'rb').read().decode('utf-8')
         self.assertTrue('jdoe = Jane Doe <jane.doe@example.com>' in content)
         self.assertTrue('unknown = John Doe <john.doe@example.com>' in content)
+
+    def test_build_authormap_reads_ldap_author_map(self):
+        repository_path = os.path.join(self.tempdir, 'repo')
+        os.makedirs(os.path.join(repository_path, 'CVSROOT'))
+        os.makedirs(os.path.join(repository_path, 'src'))
+        handle = open(os.path.join(repository_path, 'src', 'main.py,v'), 'wb')
+        try:
+            handle.write(RCS_SAMPLE)
+        finally:
+            handle.close()
+        report = {
+            'repository_name': 'repo',
+            'steps': [],
+            'warnings': [],
+            'commands': [],
+            'api_calls': [],
+            'logger': None,
+        }
+        authormap_path = os.path.join(self.tempdir, 'authors.map')
+        config = {
+            'default_committer': {
+                'name': 'John Doe',
+                'email': 'john.doe@example.com',
+            },
+            'ldap': {
+                'author_map': {
+                    'jdoe': {
+                        'name': 'Jane LDAP',
+                        'email': 'jane.ldap@example.com',
+                    },
+                    'unknown': {
+                        'name': 'Unknown LDAP',
+                        'email': 'unknown.ldap@example.com',
+                    },
+                }
+            }
+        }
+        result = migrator.build_authormap(repository_path, config, report, authormap_path)
+        self.assertEqual(2, len(result))
+        self.assertEqual([], report['author_mapping']['fallback_authors'])
+        content = open(authormap_path, 'rb').read().decode('utf-8')
+        self.assertTrue('jdoe = Jane LDAP <jane.ldap@example.com>' in content)
+        self.assertTrue('unknown = Unknown LDAP <unknown.ldap@example.com>' in content)
+
+    def test_explicit_author_map_overrides_ldap_entries(self):
+        config = {
+            'author_map': {
+                'jdoe': {'name': 'Manual', 'email': 'manual@example.com'},
+            },
+            'ldap': {
+                'author_map': {
+                    'jdoe': {'name': 'LDAP', 'email': 'ldap@example.com'},
+                    'other': {'name': 'Other LDAP', 'email': 'other@example.com'},
+                }
+            }
+        }
+        effective = migrator.build_effective_author_map(config)
+        self.assertEqual('Manual', effective['jdoe']['name'])
+        self.assertEqual('other@example.com', effective['other']['email'])
 
 
 if __name__ == '__main__':

@@ -30,6 +30,11 @@ try:
 except ImportError:
     from urllib.parse import quote
 
+try:
+    unicode
+except NameError:  # pragma: no cover - Python 3 compatibility
+    unicode = str
+
 
 LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 DEFAULT_ENGINE = 'cvs-fast-export'
@@ -225,6 +230,8 @@ def collect_cvs_authors(repository_path):
             content = handle.read()
         finally:
             handle.close()
+        if not isinstance(content, unicode):
+            content = content.decode('utf-8', 'replace')
         for author in re.findall(r'author\s+([^;]+);', content):
             authors.add(author.strip())
     return sorted(authors)
@@ -242,13 +249,29 @@ def format_identity(identity):
     return line
 
 
+def build_effective_author_map(config):
+    """Build the effective author map from LDAP and explicit overrides."""
+    effective = {}
+    ldap_config = config.get('ldap') or {}
+    ldap_map = ldap_config.get('author_map') or ldap_config.get('users') or {}
+    if isinstance(ldap_map, dict):
+        effective.update(ldap_map)
+    configured_map = config.get('author_map', {})
+    if isinstance(configured_map, dict):
+        effective.update(configured_map)
+    return effective
+
+
 def build_authormap(repository_path, config, repo_report, authormap_path):
     """Build the cvs-fast-export authormap with fallback identities."""
-    configured_map = config.get('author_map', {})
+    configured_map = build_effective_author_map(config)
     default_committer = config['default_committer']
     authors = collect_cvs_authors(repository_path)
     fallback_authors = []
     authormap = []
+    ldap_entries = len((config.get('ldap') or {}).get('author_map') or (config.get('ldap') or {}).get('users') or {})
+    if ldap_entries:
+        add_step(repo_report, 'Loaded {0} LDAP author mapping entries'.format(ldap_entries))
     for author in authors:
         mapped = configured_map.get(author)
         if mapped and mapped.get('name') and mapped.get('email'):

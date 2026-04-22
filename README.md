@@ -35,8 +35,11 @@ Die Migration arbeitet mit den lokalen `,v`-Dateien des CVS-Repositories:
 Das Werkzeug erzeugt fuer jedes CVS-Repository ein konkretes Authormap-File:
 
 - bekannte Benutzer kommen aus `author_map`
+- LDAP-Benutzer koennen optional ueber `ldap.author_map` oder `ldap.users` geladen werden
 - unbekannte Benutzer werden explizit auf `John Doe <john.doe@example.com>` gemappt
 - verwendete Fallbacks werden im Report dokumentiert
+
+Wenn sowohl LDAP- als auch `author_map`-Eintraege vorhanden sind, gewinnt `author_map` als expliziter Override.
 
 ## Bitbucket-Integration
 

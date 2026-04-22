@@ -30,6 +30,15 @@
       "timezone": "Europe/Berlin"
     }
   },
+  "ldap": {
+    "author_map": {
+      "asmith": {
+        "name": "Alice Smith",
+        "email": "alice.smith@example.com",
+        "timezone": "Europe/Berlin"
+      }
+    }
+  },
   "branch_map": {
     "HEAD": "main"
   },
